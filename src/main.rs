@@ -3,7 +3,7 @@ mod node;
 use crate::{network::Network, node::NodeRunner};
 
 use eframe::{
-    egui::{self, Layout},
+    egui::{self, Layout, RichText},
     emath::Align,
 };
 use eyre::Result;
@@ -11,7 +11,7 @@ use eyre::Result;
 fn main() -> Result<()> {
     env_logger::init();
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(600.0, 400.0)),
+        initial_window_size: Some(egui::vec2(900.0, 400.0)),
         ..Default::default()
     };
     eframe::run_native(
@@ -44,17 +44,19 @@ impl Default for SafeGui {
 
 impl eframe::App for SafeGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.request_repaint();
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
                 ui.group(|ui| {
-                    if ui.button("Network").clicked() {
+                    if ui.button(RichText::new("Network").heading()).clicked() {
                         self.state = SafeGuiState::Network;
                     }
-                    if ui.button("Node").clicked() {
+                    if ui.button(RichText::new("Node").heading()).clicked() {
                         self.state = SafeGuiState::Node;
                     }
                 });
             });
+            ui.add_space(15.0);
             match &mut self.state {
                 SafeGuiState::Network => self.network.ui(ui),
                 SafeGuiState::Node => self.node_runner.ui(ui),

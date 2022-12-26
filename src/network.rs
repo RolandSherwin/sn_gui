@@ -1,5 +1,5 @@
 use eframe::{
-    egui::{self, RichText, Ui},
+    egui::{self, RichText, ScrollArea, Ui},
     epaint::Color32,
 };
 use eyre::{eyre, Result};
@@ -29,29 +29,31 @@ impl Network {
                 Err(err) => self.error = Some(err.to_string()),
             }
         }
-
         match &self.networks {
             Some(networks) => {
-                egui::Grid::new("network_grid")
-                    .striped(true)
-                    .show(ui, |ui| {
-                        ui.label(RichText::new("Current").strong());
-                        ui.label(RichText::new("Network Name").strong());
-                        ui.label(RichText::new("Genesis Key").strong());
-                        ui.label(RichText::new("Network Contact Info").strong());
-                        ui.end_row();
-                        for network in networks {
-                            let current = if network.current { "✅" } else { "" };
-                            ui.label(current);
-                            ui.label(&network.name);
-                            ui.label(&network.genesis_key);
-                            ui.label(&network.network_info);
+                ScrollArea::vertical().show(ui, |ui| {
+                    egui::Grid::new("network_grid")
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.label(RichText::new("Current").strong());
+                            ui.label(RichText::new("Network Name").strong());
+                            ui.label(RichText::new("Genesis Key").strong());
+                            ui.label(RichText::new("Network Contact Info").strong());
                             ui.end_row();
-                        }
-                    });
+                            for network in networks {
+                                let current = if network.current { "✅" } else { "" };
+                                ui.label(current);
+                                ui.label(&network.name);
+                                ui.label(&network.genesis_key);
+                                ui.label(&network.network_info);
+                                ui.end_row();
+                            }
+                        });
+                });
             }
             None => {}
         }
+
         if let Some(error) = &self.error {
             ui.colored_label(Color32::RED, error);
         }
