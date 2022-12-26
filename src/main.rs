@@ -1,6 +1,7 @@
+mod files;
 mod network;
 mod node;
-use crate::{network::Network, node::NodeRunner};
+use crate::{files::FilesView, network::Network, node::NodeRunner};
 
 use eframe::{
     egui::{self, Layout, RichText},
@@ -25,6 +26,7 @@ async fn main() -> Result<()> {
 }
 
 enum SafeGuiState {
+    Files,
     Network,
     Node,
 }
@@ -39,6 +41,7 @@ impl Default for SafeGuiState {
 struct SafeGui {
     network: Network,
     node_runner: NodeRunner,
+    files_view: FilesView,
     state: SafeGuiState,
     status: Option<RichText>,
     stauts_reciever: Option<mpsc::Receiver<RichText>>,
@@ -52,6 +55,9 @@ impl eframe::App for SafeGui {
             ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
                 if ui.button(RichText::new("Network").heading()).clicked() {
                     self.state = SafeGuiState::Network;
+                }
+                if ui.button(RichText::new("Files").heading()).clicked() {
+                    self.state = SafeGuiState::Files;
                 }
                 if ui.button(RichText::new("Node").heading()).clicked() {
                     self.state = SafeGuiState::Node;
@@ -68,6 +74,7 @@ impl eframe::App for SafeGui {
         match &mut self.state {
             SafeGuiState::Network => self.network.ui(ctx.clone()),
             SafeGuiState::Node => self.node_runner.ui(ctx.clone()),
+            SafeGuiState::Files => self.files_view.ui(ctx.clone()),
         }
     }
 }

@@ -309,7 +309,7 @@ impl Network {
             .args(vec!["networks", "--json"])
             .output()?;
         if !cmd.status.success() {
-            return Err(eyre!("Failed to fetch networks"));
+            return Err(eyre!("Error: failed to fetch networks"));
         }
         let networks = String::from_utf8(cmd.stdout)?;
         Ok(serde_json::from_str(networks.as_str())?)
@@ -323,7 +323,7 @@ impl Network {
             .status
             .success()
         {
-            return Err(eyre!("Failed to add network"));
+            return Err(eyre!("Error: failed to add network"));
         }
 
         Ok(())
