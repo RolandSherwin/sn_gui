@@ -7,8 +7,10 @@ use eframe::{
     emath::Align,
 };
 use eyre::Result;
+use tokio::sync::mpsc;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     env_logger::init();
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(900.0, 400.0)),
@@ -26,20 +28,20 @@ enum SafeGuiState {
     Network,
     Node,
 }
+
+impl Default for SafeGuiState {
+    fn default() -> Self {
+        Self::Network
+    }
+}
+
+#[derive(Default)]
 struct SafeGui {
     network: Network,
     node_runner: NodeRunner,
     state: SafeGuiState,
-}
-
-impl Default for SafeGui {
-    fn default() -> Self {
-        Self {
-            network: Network::default(),
-            node_runner: NodeRunner::default(),
-            state: SafeGuiState::Network,
-        }
-    }
+    status: Vec<RichText>,
+    stauts_reciever: Option<mpsc::Receiver<RichText>>,
 }
 
 impl eframe::App for SafeGui {
@@ -57,10 +59,53 @@ impl eframe::App for SafeGui {
             });
             ui.add_space(10.0);
         });
+
+        if let Some(status_sender) = self.footer(ctx) {
+            self.network.status_sender = Some(status_sender.clone());
+            self.node_runner.status_sender = Some(status_sender);
+        }
         self.node_runner.current_network_name = self.network.current_network_name.clone();
         match &mut self.state {
             SafeGuiState::Network => self.network.ui(ctx.clone()),
             SafeGuiState::Node => self.node_runner.ui(ctx.clone()),
         }
+    }
+}
+
+impl SafeGui {
+    // Render a footer and store/display the status that we get from the senders
+    pub fn footer(&mut self, ctx: &egui::Context) -> Option<mpsc::Sender<RichText>> {
+        let tx = if self.stauts_reciever.is_none() {
+            let (tx, rx) = mpsc::channel(10000);
+            self.stauts_reciever = Some(rx);
+            Some(tx)
+        } else {
+            None
+        };
+
+        if let Some(rx) = &mut self.stauts_reciever {
+            if let Ok(new_status) = rx.try_recv() {
+                self.status.push(new_status);
+            }
+        }
+
+        egui::TopBottomPanel::bottom("footer").show(ctx, |ui| {
+            ui.add_space(5.0);
+            if ui
+                .with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                    if let Some(text) = self.status.first() {
+                        if ui.selectable_label(false, text.clone()).clicked() {
+                            self.status.remove(0);
+                        };
+                    }
+                })
+                .response
+                .clicked()
+            {
+                self.status.remove(0);
+            };
+        });
+
+        tx
     }
 }

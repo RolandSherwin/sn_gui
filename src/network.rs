@@ -5,6 +5,7 @@ use eframe::{
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
+use tokio::sync::mpsc;
 
 #[derive(Default)]
 pub struct Network {
@@ -14,7 +15,7 @@ pub struct Network {
     remove_network: RemoveNetwork,
     networks: Option<Vec<NetworkPrinter>>,
     pub current_network_name: Option<String>,
-    error: Option<String>,
+    pub status_sender: Option<mpsc::Sender<RichText>>,
 }
 
 #[derive(Default)]
@@ -24,11 +25,13 @@ struct AddNetwork {
     path: String,
     path_error: bool,
 }
+
 #[derive(Default)]
 struct SwitchNetwork {
     name: String,
     name_error: bool,
 }
+
 #[derive(Default)]
 struct RemoveNetwork {
     name: String,
@@ -51,7 +54,6 @@ pub struct NetworkPrinter {
 
 impl Network {
     pub fn ui(&mut self, ctx: egui::Context) {
-        self.error = None;
         if self.networks.is_none() {
             self.get_networks();
         }
@@ -103,7 +105,9 @@ impl Network {
                                         &self.add_network.name,
                                         &self.add_network.path,
                                     ) {
-                                        self.error = Some(err.to_string());
+                                        self.send_status(
+                                            RichText::new(err.to_string()).color(Color32::RED),
+                                        );
                                     }
                                     self.add_network.path = String::default();
                                     self.add_network.path_error = false;
@@ -142,7 +146,9 @@ impl Network {
                                         if let Err(err) =
                                             Self::switch_networks_cmd(&self.switch_network.name)
                                         {
-                                            self.error = Some(err.to_string());
+                                            self.send_status(
+                                                RichText::new(err.to_string()).color(Color32::RED),
+                                            );
                                         }
                                         self.switch_network.name = String::default();
                                         self.open_window = None;
@@ -178,7 +184,9 @@ impl Network {
                                         if let Err(err) =
                                             Self::remove_network_cmd(&self.remove_network.name)
                                         {
-                                            self.error = Some(err.to_string());
+                                            self.send_status(
+                                                RichText::new(err.to_string()).color(Color32::RED),
+                                            );
                                         }
                                         self.remove_network.name = String::default();
                                         self.open_window = None;
@@ -249,17 +257,25 @@ impl Network {
                 }
                 None => {}
             }
-
-            if let Some(error) = &self.error {
-                ui.colored_label(Color32::RED, error);
-            }
         });
+    }
+
+    // send status to the footer
+    fn send_status(&self, text: RichText) {
+        let sender = self.status_sender.clone();
+        if let Some(sender) = sender {
+            tokio::spawn(async move {
+                if sender.send(text).await.is_err() {
+                    log::error!("Failed to send status");
+                };
+            });
+        }
     }
 
     fn get_networks(&mut self) {
         match Self::get_networks_cmd() {
             Ok(networks) => self.networks = Some(networks),
-            Err(err) => self.error = Some(err.to_string()),
+            Err(err) => self.send_status(RichText::new(err.to_string()).color(Color32::RED)),
         }
     }
 

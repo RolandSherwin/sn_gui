@@ -2,8 +2,9 @@ use eframe::{
     egui::{self, RichText},
     epaint::Color32,
 };
-use eyre::{eyre, Result};
+use eyre::Result;
 use std::process::{Child, Command, Stdio};
+use tokio::sync::mpsc;
 
 enum NodeState {
     Running(Child),
@@ -20,40 +21,51 @@ impl Default for NodeState {
 pub struct NodeRunner {
     pub current_network_name: Option<String>,
     node_state: NodeState,
-    error: Option<String>,
+    pub status_sender: Option<mpsc::Sender<RichText>>,
 }
 
 impl NodeRunner {
     pub fn ui(&mut self, ctx: egui::Context) {
-        self.error = None;
-        egui::CentralPanel::default().show(&ctx, |ui| {
-            match &mut self.node_state {
-                NodeState::Idle => {
-                    if ui.button(RichText::new("Start node").heading()).clicked() {
-                        if self.current_network_name.is_some() {
-                            match Self::run_node() {
-                                Ok(handle) => self.node_state = NodeState::Running(handle),
-                                Err(err) => self.error = Some(err.to_string()),
-                            }
-                        } else {
-                            self.error = Some("No default network set".to_string());
+        egui::CentralPanel::default().show(&ctx, |ui| match &mut self.node_state {
+            NodeState::Idle => {
+                if ui.button(RichText::new("Start node").heading()).clicked() {
+                    if self.current_network_name.is_some() {
+                        match Self::run_node() {
+                            Ok(handle) => self.node_state = NodeState::Running(handle),
+                            Err(err) => self.send_status(
+                                RichText::new(format!("Error: {err}")).color(Color32::RED),
+                            ),
                         }
-                    }
-                }
-                NodeState::Running(handle) => {
-                    if ui.button(RichText::new("Stop node").heading()).clicked() {
-                        if handle.kill().is_err() {
-                            self.error = Some("Failed to kill node".to_string());
-                        };
-                        self.node_state = NodeState::Idle
+                    } else {
+                        self.send_status(
+                            RichText::new("Error: No default network set").color(Color32::RED),
+                        );
                     }
                 }
             }
-
-            if let Some(error) = &self.error {
-                ui.colored_label(Color32::RED, error);
+            NodeState::Running(handle) => {
+                if ui.button(RichText::new("Stop node").heading()).clicked() {
+                    if handle.kill().is_err() {
+                        self.send_status(
+                            RichText::new("Error: Failed to kill node").color(Color32::RED),
+                        );
+                    };
+                    self.node_state = NodeState::Idle
+                }
             }
         });
+    }
+
+    // send status to the footer
+    fn send_status(&self, text: RichText) {
+        let sender = self.status_sender.clone();
+        if let Some(sender) = sender {
+            tokio::spawn(async move {
+                if sender.send(text).await.is_err() {
+                    log::error!("Failed to send status");
+                };
+            });
+        }
     }
 
     fn run_node() -> Result<Child> {
