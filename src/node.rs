@@ -1,5 +1,5 @@
 use eframe::{
-    egui::{RichText, Ui},
+    egui::{self, RichText},
     epaint::Color32,
 };
 use eyre::{eyre, Result};
@@ -25,34 +25,36 @@ impl Default for NodeRunner {
 }
 
 impl NodeRunner {
-    pub fn ui(&mut self, ui: &mut Ui) {
+    pub fn ui(&mut self, ctx: egui::Context) {
         self.error = None;
-        match &mut self.node_state {
-            NodeState::Idle => {
-                if ui.button(RichText::new("Start node").size(30.0)).clicked() {
-                    if let Err(err) = Self::setup_network() {
-                        self.error = Some(err.to_string());
-                    } else {
-                        match Self::run_node() {
-                            Ok(handle) => self.node_state = NodeState::Running(handle),
-                            Err(err) => self.error = Some(err.to_string()),
+        egui::CentralPanel::default().show(&ctx, |ui| {
+            match &mut self.node_state {
+                NodeState::Idle => {
+                    if ui.button(RichText::new("Start node").size(30.0)).clicked() {
+                        if let Err(err) = Self::setup_network() {
+                            self.error = Some(err.to_string());
+                        } else {
+                            match Self::run_node() {
+                                Ok(handle) => self.node_state = NodeState::Running(handle),
+                                Err(err) => self.error = Some(err.to_string()),
+                            }
                         }
                     }
                 }
-            }
-            NodeState::Running(handle) => {
-                if ui.button(RichText::new("Stop node").size(30.0)).clicked() {
-                    if handle.kill().is_err() {
-                        self.error = Some("Failed to kill node".to_string());
-                    };
-                    self.node_state = NodeState::Idle
+                NodeState::Running(handle) => {
+                    if ui.button(RichText::new("Stop node").size(30.0)).clicked() {
+                        if handle.kill().is_err() {
+                            self.error = Some("Failed to kill node".to_string());
+                        };
+                        self.node_state = NodeState::Idle
+                    }
                 }
             }
-        }
 
-        if let Some(error) = &self.error {
-            ui.colored_label(Color32::RED, error);
-        }
+            if let Some(error) = &self.error {
+                ui.colored_label(Color32::RED, error);
+            }
+        });
     }
     fn setup_network() -> Result<()> {
         let args_add_network = vec![

@@ -45,22 +45,21 @@ impl Default for SafeGui {
 impl eframe::App for SafeGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint();
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::TopBottomPanel::new(egui::panel::TopBottomSide::Top, "top").show(ctx, |ui| {
+            ui.add_space(10.0);
             ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
-                ui.group(|ui| {
-                    if ui.button(RichText::new("Network").heading()).clicked() {
-                        self.state = SafeGuiState::Network;
-                    }
-                    if ui.button(RichText::new("Node").heading()).clicked() {
-                        self.state = SafeGuiState::Node;
-                    }
-                });
+                if ui.button(RichText::new("Network").heading()).clicked() {
+                    self.state = SafeGuiState::Network;
+                }
+                if ui.button(RichText::new("Node").heading()).clicked() {
+                    self.state = SafeGuiState::Node;
+                }
             });
-            ui.add_space(15.0);
-            match &mut self.state {
-                SafeGuiState::Network => self.network.ui(ui),
-                SafeGuiState::Node => self.node_runner.ui(ui),
-            }
+            ui.add_space(10.0);
         });
+        match &mut self.state {
+            SafeGuiState::Network => self.network.ui(ctx.clone()),
+            SafeGuiState::Node => self.node_runner.ui(ctx.clone()),
+        }
     }
 }
