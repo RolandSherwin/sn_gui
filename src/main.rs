@@ -40,7 +40,7 @@ struct SafeGui {
     network: Network,
     node_runner: NodeRunner,
     state: SafeGuiState,
-    status: Vec<RichText>,
+    status: Option<RichText>,
     stauts_reciever: Option<mpsc::Receiver<RichText>>,
 }
 
@@ -85,25 +85,17 @@ impl SafeGui {
 
         if let Some(rx) = &mut self.stauts_reciever {
             if let Ok(new_status) = rx.try_recv() {
-                self.status.push(new_status);
+                self.status = Some(new_status);
             }
         }
 
         egui::TopBottomPanel::bottom("footer").show(ctx, |ui| {
             ui.add_space(5.0);
-            if ui
-                .with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
-                    if let Some(text) = self.status.first() {
-                        if ui.selectable_label(false, text.clone()).clicked() {
-                            self.status.remove(0);
-                        };
-                    }
-                })
-                .response
-                .clicked()
-            {
-                self.status.remove(0);
-            };
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                if let Some(text) = &self.status {
+                    ui.label(text.clone());
+                }
+            })
         });
 
         tx

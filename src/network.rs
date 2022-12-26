@@ -109,6 +109,11 @@ impl Network {
                                             RichText::new(err.to_string()).color(Color32::RED),
                                         );
                                     }
+                                    // sucessfully added a network
+                                    self.send_status(RichText::new(format!(
+                                        "Success: Added a network with name {}",
+                                        self.add_network.name
+                                    )));
                                     self.add_network.path = String::default();
                                     self.add_network.path_error = false;
                                     self.add_network.name = String::default();
@@ -150,6 +155,11 @@ impl Network {
                                                 RichText::new(err.to_string()).color(Color32::RED),
                                             );
                                         }
+                                        // sucessfully swtiched newtork
+                                        self.send_status(RichText::new(format!(
+                                            "Success: Switched to network: {}",
+                                            self.switch_network.name
+                                        )));
                                         self.switch_network.name = String::default();
                                         self.open_window = None;
                                         self.get_networks();
@@ -188,6 +198,11 @@ impl Network {
                                                 RichText::new(err.to_string()).color(Color32::RED),
                                             );
                                         }
+                                        // sucessfully removed network
+                                        self.send_status(RichText::new(format!(
+                                            "Success: Removed network: {}",
+                                            self.remove_network.name
+                                        )));
                                         self.remove_network.name = String::default();
                                         self.open_window = None;
                                         self.get_networks();

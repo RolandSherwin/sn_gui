@@ -31,7 +31,10 @@ impl NodeRunner {
                 if ui.button(RichText::new("Start node").heading()).clicked() {
                     if self.current_network_name.is_some() {
                         match Self::run_node() {
-                            Ok(handle) => self.node_state = NodeState::Running(handle),
+                            Ok(handle) => {
+                                self.send_status(RichText::new("Node is running!".to_string()));
+                                self.node_state = NodeState::Running(handle)
+                            }
                             Err(err) => self.send_status(
                                 RichText::new(format!("Error: {err}")).color(Color32::RED),
                             ),
@@ -50,6 +53,7 @@ impl NodeRunner {
                             RichText::new("Error: Failed to kill node").color(Color32::RED),
                         );
                     };
+                    self.send_status(RichText::new("Node has been stopped!".to_string()));
                     self.node_state = NodeState::Idle
                 }
             }
