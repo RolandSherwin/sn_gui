@@ -13,6 +13,7 @@ pub struct Network {
     switch_network: SwitchNetwork,
     remove_network: RemoveNetwork,
     networks: Option<Vec<NetworkPrinter>>,
+    pub current_network_name: Option<String>,
     error: Option<String>,
 }
 
@@ -230,7 +231,12 @@ impl Network {
                                 ui.label(RichText::new("Genesis Key").strong());
                                 ui.label(RichText::new("Network Contact Info").strong());
                                 ui.end_row();
+                                self.current_network_name = None;
                                 for network in networks {
+                                    // used to start node
+                                    if network.current {
+                                        self.current_network_name = Some(network.name.clone());
+                                    }
                                     let current = if network.current { "✅" } else { "" };
                                     ui.label(current);
                                     ui.label(&network.name);

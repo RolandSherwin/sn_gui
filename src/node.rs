@@ -10,18 +10,17 @@ enum NodeState {
     Idle,
 }
 
-pub struct NodeRunner {
-    error: Option<String>,
-    node_state: NodeState,
+impl Default for NodeState {
+    fn default() -> Self {
+        Self::Idle
+    }
 }
 
-impl Default for NodeRunner {
-    fn default() -> Self {
-        Self {
-            error: None,
-            node_state: NodeState::Idle,
-        }
-    }
+#[derive(Default)]
+pub struct NodeRunner {
+    pub current_network_name: Option<String>,
+    node_state: NodeState,
+    error: Option<String>,
 }
 
 impl NodeRunner {
@@ -30,19 +29,19 @@ impl NodeRunner {
         egui::CentralPanel::default().show(&ctx, |ui| {
             match &mut self.node_state {
                 NodeState::Idle => {
-                    if ui.button(RichText::new("Start node").size(30.0)).clicked() {
-                        if let Err(err) = Self::setup_network() {
-                            self.error = Some(err.to_string());
-                        } else {
+                    if ui.button(RichText::new("Start node").heading()).clicked() {
+                        if self.current_network_name.is_some() {
                             match Self::run_node() {
                                 Ok(handle) => self.node_state = NodeState::Running(handle),
                                 Err(err) => self.error = Some(err.to_string()),
                             }
+                        } else {
+                            self.error = Some("No default network set".to_string());
                         }
                     }
                 }
                 NodeState::Running(handle) => {
-                    if ui.button(RichText::new("Stop node").size(30.0)).clicked() {
+                    if ui.button(RichText::new("Stop node").heading()).clicked() {
                         if handle.kill().is_err() {
                             self.error = Some("Failed to kill node".to_string());
                         };
@@ -55,33 +54,6 @@ impl NodeRunner {
                 ui.colored_label(Color32::RED, error);
             }
         });
-    }
-    fn setup_network() -> Result<()> {
-        let args_add_network = vec![
-            "networks",
-            "add",
-            "main",
-            "https://sn-node.s3.eu-west-2.amazonaws.com/testnet_tool/main2/network-contacts",
-        ];
-        let args_switch_network = vec!["networks", "switch", "main"];
-        if !Command::new("safe")
-            .args(args_add_network)
-            .output()?
-            .status
-            .success()
-        {
-            return Err(eyre!("Failed to add network"));
-        }
-
-        if !Command::new("safe")
-            .args(args_switch_network)
-            .output()?
-            .status
-            .success()
-        {
-            return Err(eyre!("Failed to switch network"));
-        }
-        Ok(())
     }
 
     fn run_node() -> Result<Child> {

@@ -57,6 +57,7 @@ impl eframe::App for SafeGui {
             });
             ui.add_space(10.0);
         });
+        self.node_runner.current_network_name = self.network.current_network_name.clone();
         match &mut self.state {
             SafeGuiState::Network => self.network.ui(ctx.clone()),
             SafeGuiState::Node => self.node_runner.ui(ctx.clone()),
