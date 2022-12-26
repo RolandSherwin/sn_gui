@@ -26,11 +26,20 @@ struct PutState {
     path_error: bool,
 }
 
-#[derive(Default)]
 struct GetState {
     url: String,
     url_error: bool,
     dst: String,
+}
+
+impl Default for GetState {
+    fn default() -> Self {
+        Self {
+            url: Default::default(),
+            url_error: Default::default(),
+            dst: ".".to_string(),
+        }
+    }
 }
 
 impl Default for FilesState {
@@ -102,6 +111,12 @@ impl FilesView {
                         let dst_lable = ui.label("File dest: ");
                         ui.text_edit_singleline(&mut self.get_state.dst)
                             .labelled_by(dst_lable.id);
+                        if ui.button("Select folder…").clicked() {
+                            // file picker dependencies https://docs.rs/rfd/latest/rfd/#linux--bsd-backends
+                            if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                                self.get_state.dst = path.display().to_string();
+                            }
+                        }
                         ui.add_space(1.0);
                     });
 
