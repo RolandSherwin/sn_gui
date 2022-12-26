@@ -20,6 +20,7 @@ pub struct Network {
 
 #[derive(Default)]
 struct AddNetwork {
+    initial_focus_done: bool,
     name: String,
     name_error: bool,
     path: String,
@@ -65,9 +66,13 @@ impl Network {
                     egui::Window::new("Add Network").show(&ctx, |ui| {
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
                             let name_lable = ui.label("Network name: ");
-                            ui.text_edit_singleline(&mut self.add_network.name)
-                                .labelled_by(name_lable.id)
-                                .request_focus();
+                            let name = ui
+                                .text_edit_singleline(&mut self.add_network.name)
+                                .labelled_by(name_lable.id);
+                            if !self.add_network.initial_focus_done {
+                                name.request_focus();
+                                self.add_network.initial_focus_done = true
+                            }
                         });
                         if self.add_network.name_error {
                             ui.colored_label(egui::Color32::RED, "Name cannot be empty");
@@ -108,18 +113,19 @@ impl Network {
                                         self.send_status(
                                             RichText::new(err.to_string()).color(Color32::RED),
                                         );
+                                    } else {
+                                        // sucessfully added a network
+                                        self.send_status(RichText::new(format!(
+                                            "Success: Added a network with name {}",
+                                            self.add_network.name
+                                        )));
+                                        self.add_network.path = String::default();
+                                        self.add_network.path_error = false;
+                                        self.add_network.name = String::default();
+                                        self.add_network.name_error = false;
+                                        self.open_window = None;
+                                        self.get_networks();
                                     }
-                                    // sucessfully added a network
-                                    self.send_status(RichText::new(format!(
-                                        "Success: Added a network with name {}",
-                                        self.add_network.name
-                                    )));
-                                    self.add_network.path = String::default();
-                                    self.add_network.path_error = false;
-                                    self.add_network.name = String::default();
-                                    self.add_network.name_error = false;
-                                    self.open_window = None;
-                                    self.get_networks();
                                 }
                             }
                         });
@@ -154,15 +160,16 @@ impl Network {
                                             self.send_status(
                                                 RichText::new(err.to_string()).color(Color32::RED),
                                             );
+                                        } else {
+                                            // sucessfully swtiched newtork
+                                            self.send_status(RichText::new(format!(
+                                                "Success: Switched to network: {}",
+                                                self.switch_network.name
+                                            )));
+                                            self.switch_network.name = String::default();
+                                            self.open_window = None;
+                                            self.get_networks();
                                         }
-                                        // sucessfully swtiched newtork
-                                        self.send_status(RichText::new(format!(
-                                            "Success: Switched to network: {}",
-                                            self.switch_network.name
-                                        )));
-                                        self.switch_network.name = String::default();
-                                        self.open_window = None;
-                                        self.get_networks();
                                     }
                                 }
                             });
@@ -197,15 +204,16 @@ impl Network {
                                             self.send_status(
                                                 RichText::new(err.to_string()).color(Color32::RED),
                                             );
+                                        } else {
+                                            // sucessfully removed network
+                                            self.send_status(RichText::new(format!(
+                                                "Success: Removed network: {}",
+                                                self.remove_network.name
+                                            )));
+                                            self.remove_network.name = String::default();
+                                            self.open_window = None;
+                                            self.get_networks();
                                         }
-                                        // sucessfully removed network
-                                        self.send_status(RichText::new(format!(
-                                            "Success: Removed network: {}",
-                                            self.remove_network.name
-                                        )));
-                                        self.remove_network.name = String::default();
-                                        self.open_window = None;
-                                        self.get_networks();
                                     }
                                 }
                             });
@@ -236,6 +244,8 @@ impl Network {
                 };
                 if ui.button("Add").clicked() {
                     if self.open_window.is_none() {
+                        // to set focus to the first text input
+                        self.add_network.initial_focus_done = false;
                         self.open_window = Some(OpenWindows::Add)
                     } else {
                         self.open_window = None;
@@ -322,13 +332,16 @@ impl Network {
     fn switch_networks_cmd(name: &str) -> Result<()> {
         let args_switch_network = vec!["networks", "switch", name];
 
-        if !Command::new("safe")
-            .args(args_switch_network)
-            .output()?
-            .status
-            .success()
-        {
-            return Err(eyre!("Failed to switch network"));
+        let result = Command::new("safe").args(args_switch_network).output()?;
+
+        if !result.status.success() {
+            let stderr = String::from_utf8(result.stderr)?;
+            if stderr.contains("with name") {
+                return Err(eyre!(
+                    "Error: failed to switch network. No network with name {name} found!"
+                ));
+            }
+            return Err(eyre!("Error: failed to switch network"));
         }
         Ok(())
     }
@@ -336,13 +349,16 @@ impl Network {
     fn remove_network_cmd(name: &str) -> Result<()> {
         let args_remove_network = vec!["networks", "remove", name];
 
-        if !Command::new("safe")
-            .args(args_remove_network)
-            .output()?
-            .status
-            .success()
-        {
-            return Err(eyre!("Failed to remove network"));
+        let result = Command::new("safe").args(args_remove_network).output()?;
+        let stdout = String::from_utf8(result.stdout)?;
+        if stdout.contains("with name") {
+            return Err(eyre!(
+                "Error: failed to remove network. No network with name {name} found!"
+            ));
+        }
+
+        if !result.status.success() {
+            return Err(eyre!("Error: failed to remove network"));
         }
         Ok(())
     }
