@@ -1,6 +1,5 @@
-use eframe::{
-    egui::{self, RichText, ScrollArea},
-    epaint::Color32,
+use eframe::egui::{
+    self, Align, CentralPanel, Color32, Grid, Layout, RichText, ScrollArea, Ui, Window,
 };
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
@@ -63,39 +62,11 @@ impl Network {
         if let Some(open_window) = &self.open_window {
             match open_window {
                 OpenWindows::Add => {
-                    egui::Window::new("Add Network").show(&ctx, |ui| {
-                        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                            let name_lable = ui.label("Network name: ");
-                            let name = ui
-                                .text_edit_singleline(&mut self.add_network.name)
-                                .labelled_by(name_lable.id);
-                            if !self.add_network.initial_focus_done {
-                                name.request_focus();
-                                self.add_network.initial_focus_done = true
-                            }
-                        });
-                        if self.add_network.name_error {
-                            ui.colored_label(egui::Color32::RED, "Name cannot be empty");
-                        }
+                    Window::new("Add Network").show(&ctx, |ui| {
+                        self.add_network.ui_name_row(ui);
+                        self.add_network.ui_path_row(ui);
 
-                        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                            let path_lable = ui.label("Network path: ");
-                            ui.text_edit_singleline(&mut self.add_network.path)
-                                .labelled_by(path_lable.id);
-                            ui.add_space(1.0);
-
-                            if ui.button("Open file…").clicked() {
-                                // file picker dependencies https://docs.rs/rfd/latest/rfd/#linux--bsd-backends
-                                if let Some(path) = rfd::FileDialog::new().pick_file() {
-                                    self.add_network.path = path.display().to_string();
-                                }
-                            }
-                        });
-                        if self.add_network.path_error {
-                            ui.colored_label(egui::Color32::RED, "Path cannot be empty");
-                        }
-
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                        ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                             if ui.button("Close").clicked() {
                                 self.open_window = None;
                             }
@@ -132,21 +103,13 @@ impl Network {
                     });
                 }
                 OpenWindows::Switch => {
-                    egui::Window::new("Switch Network")
+                    Window::new("Switch Network")
                         // .pivot(egui::Align2::LEFT_CENTER)
                         // .fixed_pos(egui::pos2(pos.x + 000.0, pos.y + 0.0))
                         .show(&ctx, |ui| {
-                            ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                                let switch_to_lable = ui.label("Switch to: ");
-                                ui.text_edit_singleline(&mut self.switch_network.name)
-                                    .labelled_by(switch_to_lable.id)
-                                    .request_focus();
-                            });
-                            if self.switch_network.name_error {
-                                ui.colored_label(egui::Color32::RED, "Name cannot be empty");
-                            }
+                            self.switch_network.ui_name_row(ui);
 
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                            ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                                 if ui.button("Close").clicked() {
                                     self.open_window = None;
                                 }
@@ -176,21 +139,13 @@ impl Network {
                         });
                 }
                 OpenWindows::Remove => {
-                    egui::Window::new("Remove Network")
+                    Window::new("Remove Network")
                         // .pivot(egui::Align2::LEFT_CENTER)
                         // .fixed_pos(egui::pos2(pos.x + 000.0, pos.y + 0.0))
                         .show(&ctx, |ui| {
-                            ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                                let remove_network_lable = ui.label("Remove network: ");
-                                ui.text_edit_singleline(&mut self.remove_network.name)
-                                    .labelled_by(remove_network_lable.id)
-                                    .request_focus();
-                            });
-                            if self.remove_network.name_error {
-                                ui.colored_label(egui::Color32::RED, "Name cannot be empty");
-                            }
+                            self.remove_network.ui_name_row(ui);
 
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                            ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                                 if ui.button("Close").clicked() {
                                     self.open_window = None;
                                 }
@@ -222,8 +177,8 @@ impl Network {
             }
         }
 
-        egui::CentralPanel::default().show(&ctx, |ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+        CentralPanel::default().show(&ctx, |ui| {
+            ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 if ui.button("⟳").clicked() {
                     self.get_networks();
                 };
@@ -256,28 +211,26 @@ impl Network {
             match &self.networks {
                 Some(networks) => {
                     ScrollArea::vertical().show(ui, |ui| {
-                        egui::Grid::new("network_grid")
-                            .striped(true)
-                            .show(ui, |ui| {
-                                ui.label(RichText::new("Current").strong());
-                                ui.label(RichText::new("Network Name").strong());
-                                ui.label(RichText::new("Genesis Key").strong());
-                                ui.label(RichText::new("Network Contact Info").strong());
-                                ui.end_row();
-                                self.current_network_name = None;
-                                for network in networks {
-                                    // used to start node
-                                    if network.current {
-                                        self.current_network_name = Some(network.name.clone());
-                                    }
-                                    let current = if network.current { "✅" } else { "" };
-                                    ui.label(current);
-                                    ui.label(&network.name);
-                                    ui.label(&network.genesis_key);
-                                    ui.label(&network.network_info);
-                                    ui.end_row();
+                        Grid::new("network_grid").striped(true).show(ui, |ui| {
+                            ui.label(RichText::new("Current").strong());
+                            ui.label(RichText::new("Network Name").strong());
+                            ui.label(RichText::new("Genesis Key").strong());
+                            ui.label(RichText::new("Network Contact Info").strong());
+                            ui.end_row();
+                            self.current_network_name = None;
+                            for network in networks {
+                                // used to start node
+                                if network.current {
+                                    self.current_network_name = Some(network.name.clone());
                                 }
-                            });
+                                let current = if network.current { "✅" } else { "" };
+                                ui.label(current);
+                                ui.label(&network.name);
+                                ui.label(&network.genesis_key);
+                                ui.label(&network.network_info);
+                                ui.end_row();
+                            }
+                        });
                     });
                 }
                 None => {}
@@ -285,7 +238,7 @@ impl Network {
         });
     }
 
-    // send status to the footer
+    // Send status to the footer
     fn send_status(&self, text: RichText) {
         let sender = self.status_sender.clone();
         if let Some(sender) = sender {
@@ -297,6 +250,7 @@ impl Network {
         }
     }
 
+    // Get the current networks and store it inside self
     fn get_networks(&mut self) {
         match Self::get_networks_cmd() {
             Ok(networks) => self.networks = Some(networks),
@@ -304,6 +258,7 @@ impl Network {
         }
     }
 
+    // Execute safe Command to get the networks
     fn get_networks_cmd() -> Result<Vec<NetworkPrinter>> {
         let cmd = Command::new("safe")
             .args(vec!["networks", "--json"])
@@ -315,6 +270,7 @@ impl Network {
         Ok(serde_json::from_str(networks.as_str())?)
     }
 
+    // Execute safe Command to add a network
     fn add_networks_cmd(name: &str, path: &str) -> Result<()> {
         let args_add_network = vec!["networks", "add", name, path];
         if !Command::new("safe")
@@ -329,6 +285,7 @@ impl Network {
         Ok(())
     }
 
+    // Execute safe Command to switch network
     fn switch_networks_cmd(name: &str) -> Result<()> {
         let args_switch_network = vec!["networks", "switch", name];
 
@@ -346,6 +303,7 @@ impl Network {
         Ok(())
     }
 
+    // Execute safe Command to remove a network
     fn remove_network_cmd(name: &str) -> Result<()> {
         let args_remove_network = vec!["networks", "remove", name];
 
@@ -361,5 +319,72 @@ impl Network {
             return Err(eyre!("Error: failed to remove network"));
         }
         Ok(())
+    }
+}
+
+impl AddNetwork {
+    // UI for network name lable and text input
+    fn ui_name_row(&mut self, ui: &mut Ui) {
+        ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+            let name_lable = ui.label("Network name: ");
+            let name = ui
+                .text_edit_singleline(&mut self.name)
+                .labelled_by(name_lable.id);
+            if !self.initial_focus_done {
+                name.request_focus();
+                self.initial_focus_done = true
+            }
+        });
+        if self.name_error {
+            ui.colored_label(Color32::RED, "Name cannot be empty");
+        }
+    }
+
+    // UI for network path lable, text input and file browser
+    fn ui_path_row(&mut self, ui: &mut Ui) {
+        ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+            let path_lable = ui.label("Network path: ");
+            ui.text_edit_singleline(&mut self.path)
+                .labelled_by(path_lable.id);
+            ui.add_space(1.0);
+
+            if ui.button("Open file…").clicked() {
+                // file picker dependencies https://docs.rs/rfd/latest/rfd/#linux--bsd-backends
+                if let Some(path) = rfd::FileDialog::new().pick_file() {
+                    self.path = path.display().to_string();
+                }
+            }
+        });
+        if self.path_error {
+            ui.colored_label(Color32::RED, "Path cannot be empty");
+        }
+    }
+}
+
+impl SwitchNetwork {
+    fn ui_name_row(&mut self, ui: &mut Ui) {
+        ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+            let switch_to_lable = ui.label("Switch to: ");
+            ui.text_edit_singleline(&mut self.name)
+                .labelled_by(switch_to_lable.id)
+                .request_focus();
+        });
+        if self.name_error {
+            ui.colored_label(Color32::RED, "Name cannot be empty");
+        }
+    }
+}
+
+impl RemoveNetwork {
+    fn ui_name_row(&mut self, ui: &mut Ui) {
+        ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+            let remove_network_lable = ui.label("Remove network: ");
+            ui.text_edit_singleline(&mut self.name)
+                .labelled_by(remove_network_lable.id)
+                .request_focus();
+        });
+        if self.name_error {
+            ui.colored_label(Color32::RED, "Name cannot be empty");
+        }
     }
 }
