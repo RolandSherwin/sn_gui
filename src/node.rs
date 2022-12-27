@@ -117,20 +117,29 @@ impl NodeRunner {
                     }
 
                     if let Some(log) = &mut self.log {
-                        ScrollArea::vertical()
-                            .max_height(400.0)
-                            .max_width(800.0)
-                            .auto_shrink([false; 2])
-                            .show(ui, |ui| {
-                                ui.vertical(|ui| {
-                                    for line in &log.logs {
-                                        ui.label(line);
-                                    }
+                        ui.add_space(20.0);
+                        ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                            ScrollArea::vertical()
+                                .max_width(800.0)
+                                .auto_shrink([false, false])
+                                .show(ui, |ui| {
+                                    ui.vertical(|ui| {
+                                        for line in &log.logs {
+                                            ui.label(line);
+                                        }
+                                    });
                                 });
-                            });
-                        if let Ok(line) = log.log_reciever.try_recv() {
-                            log.logs.push(line);
-                        }
+                            if let Ok(line) = log.log_reciever.try_recv() {
+                                log.logs.push(line);
+                            }
+
+                            if ui.button("Log dir").clicked() {
+                                Command::new("xdg-open")
+                                    .arg(".") // <- Specify the directory you'd like to open.
+                                    .spawn()
+                                    .unwrap();
+                            }
+                        });
                     }
                 },
             );
@@ -139,22 +148,34 @@ impl NodeRunner {
 
     fn read_log(&self) -> (JoinHandle<()>, mpsc::Receiver<String>) {
         let (log_sender, log_reciever) = mpsc::channel(10000);
+        let status_sender = self.status_sender.clone();
         let handle = tokio::spawn(async move {
             // allow time for the log file to be created
             tokio::time::sleep(Duration::from_secs(2)).await;
-            let file = File::open("/home/roland/.safe/node/local-node/sn_node.log")
-                .await
-                .unwrap();
-            let mut lines = BufReader::new(file).lines();
-
-            loop {
-                // let mut contents = String::new();
-                while let Some(line) = lines.next_line().await.unwrap() {
-                    if log_sender.send(line).await.is_err() {
-                        log::error!("Failed to send logs");
+            if let Some(mut path) = dirs::home_dir() {
+                path.push(".safe");
+                path.push("node");
+                path.push("local-node");
+                path.push("sn_node.log");
+                if let Ok(file) = File::open(path).await {
+                    let mut lines = BufReader::new(file).lines();
+                    while let Some(line) = lines.next_line().await.unwrap() {
+                        if log_sender.send(line).await.is_err() {
+                            log::error!("Failed to send logs");
+                        }
+                        tokio::time::sleep(Duration::from_millis(10)).await;
                     }
+                } else {
+                    Self::spawn_send_status(
+                        status_sender,
+                        RichText::new("Error: cannot open log file").color(Color32::RED),
+                    );
                 }
-                tokio::time::sleep(Duration::from_secs(1)).await;
+            } else {
+                Self::spawn_send_status(
+                    status_sender,
+                    RichText::new("Error: cannot find home dir").color(Color32::RED),
+                );
             }
         });
         (handle, log_reciever)
@@ -162,7 +183,10 @@ impl NodeRunner {
 
     // send status to the footer
     fn send_status(&self, text: RichText) {
-        let sender = self.status_sender.clone();
+        Self::spawn_send_status(self.status_sender.clone(), text);
+    }
+
+    fn spawn_send_status(sender: Option<mpsc::Sender<RichText>>, text: RichText) {
         if let Some(sender) = sender {
             tokio::spawn(async move {
                 if sender.send(text).await.is_err() {
