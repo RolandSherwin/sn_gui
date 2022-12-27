@@ -28,23 +28,41 @@ impl NodeRunner {
     pub fn ui(&mut self, ctx: egui::Context) {
         egui::CentralPanel::default().show(&ctx, |ui| match &mut self.node_state {
             NodeState::Idle => {
-                if ui.button(RichText::new("Start node").heading()).clicked() {
-                    if self.current_network_name.is_some() {
-                        match Self::run_node() {
-                            Ok(handle) => {
-                                self.send_status(RichText::new("Node is running!".to_string()));
-                                self.node_state = NodeState::Running(handle)
-                            }
-                            Err(err) => self.send_status(
-                                RichText::new(format!("Error: {err}")).color(Color32::RED),
-                            ),
-                        }
-                    } else {
-                        self.send_status(
-                            RichText::new("Error: No default network set").color(Color32::RED),
+                ui.with_layout(
+                    egui::Layout::top_down_justified(egui::Align::Center),
+                    |ui| {
+                        let button_rect = egui::Rect::from_min_size(
+                            ui.min_rect().min + egui::vec2(-100.0, 80.0),
+                            egui::vec2(200.0, 100.0),
                         );
-                    }
-                }
+                        if ui
+                            .put(
+                                button_rect,
+                                egui::Button::new(RichText::new("Start node").heading()),
+                            )
+                            .clicked()
+                        {
+                            if self.current_network_name.is_some() {
+                                match Self::run_node() {
+                                    Ok(handle) => {
+                                        self.send_status(RichText::new(
+                                            "Node is running!".to_string(),
+                                        ));
+                                        self.node_state = NodeState::Running(handle)
+                                    }
+                                    Err(err) => self.send_status(
+                                        RichText::new(format!("Error: {err}")).color(Color32::RED),
+                                    ),
+                                }
+                            } else {
+                                self.send_status(
+                                    RichText::new("Error: No default network set")
+                                        .color(Color32::RED),
+                                );
+                            }
+                        }
+                    },
+                );
             }
             NodeState::Running(handle) => {
                 if ui.button(RichText::new("Stop node").heading()).clicked() {
