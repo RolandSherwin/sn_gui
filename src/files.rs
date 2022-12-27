@@ -50,15 +50,24 @@ impl Default for FilesState {
 
 impl FilesView {
     pub fn ui(&mut self, ctx: egui::Context) {
+        // left side panel
         egui::SidePanel::new(egui::panel::Side::Left, "files_panel").show(&ctx, |ui| {
-            if ui.button(RichText::new("Put").heading()).clicked() {
-                self.files_state = FilesState::Put;
-            };
-            ui.add_space(10.0);
-            if ui.button(RichText::new("Get").heading()).clicked() {
-                self.files_state = FilesState::Get;
-            };
+            ui.with_layout(
+                egui::Layout::top_down_justified(egui::Align::Center),
+                |ui| {
+                    ui.add_space(10.0);
+                    if ui.button(RichText::new("Put").heading()).clicked() {
+                        self.files_state = FilesState::Put;
+                    };
+                    ui.add_space(10.0);
+                    if ui.button(RichText::new("Get").heading()).clicked() {
+                        self.files_state = FilesState::Get;
+                    };
+                },
+            );
         });
+
+        // center
         egui::CentralPanel::default().show(&ctx, |ui| {
             match self.files_state {
                 FilesState::Put => {
@@ -139,6 +148,7 @@ impl FilesView {
                 }
             }
 
+            ui.add_space(10.0);
             ui.with_layout(
                 egui::Layout::centered_and_justified(egui::Direction::BottomUp),
                 |ui| {
