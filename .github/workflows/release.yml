@@ -12,7 +12,16 @@ jobs:
     steps:
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - shell: bash
+        run: make gha-build-${{ matrix.target }}
+      - uses: softprops/action-gh-release@v1
         with:
           name: ${{ github.ref_name }}
           draft: false
