@@ -54,9 +54,7 @@ jobs:
         override: true
     - name: Build
       run: cargo build --release --locked
-    # No need to upload binaries for dry run (cron)
     - name: Upload binaries to release
-      if: github.event_name == 'release'
       uses: svenstaro/upload-release-action@2.3.0
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -90,8 +88,6 @@ jobs:
           command: build
           args: --release --target ${{ matrix.target }}
       - name: Upload the binary to release
-        # No need to upload binaries for dry run (cron)
-        if: github.event_name == 'release'
         uses: svenstaro/upload-release-action@2.3.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -149,8 +145,6 @@ jobs:
       - name: List target output files
         run: ls -lR ./target
       - name: Upload the binary to release
-        # No need to upload binaries for dry run (cron)
-        if: github.event_name == 'release'
         uses: svenstaro/upload-release-action@2.3.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
