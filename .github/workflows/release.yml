@@ -17,8 +17,7 @@ jobs:
     - name: Install needed dependencies
       run: |
         apt-get update && apt-get install -y curl
-        apt-get install build-essential -y
-        apt-get install cmake -y
+        apt-get install build-essential cmake libgtk-3-dev pkg-config -y
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
@@ -88,63 +87,6 @@ jobs:
         with:
           command: build
           args: --release --target ${{ matrix.target }}
-      - name: Upload the binary to release
-        uses: svenstaro/upload-release-action@2.3.0
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/${{ matrix.target }}/release/sn_gui
-          asset_name: ${{ matrix.asset_name }}
-          tag: ${{ github.ref }}
-
-  publish-aarch64:
-    name: Publish binary for aarch64
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - build: aarch64
-            os: ubuntu-18.04
-            target: aarch64-unknown-linux-gnu
-            linker: gcc-aarch64-linux-gnu
-            use-cross: true
-            asset_name: sn_gui-linux-aarch64
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Installing Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          target: ${{ matrix.target }}
-          override: true
-      - name: APT update
-        run: |
-          sudo apt update
-      - name: Install target specific tools
-        if: matrix.use-cross
-        run: |
-          sudo apt-get install -y ${{ matrix.linker }}
-      - name: Configure target aarch64 GNU
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        ## Environment variable is not passed using env:
-        ## LD gold won't work with MUSL
-        # env:
-        #   JEMALLOC_SYS_WITH_LG_PAGE: 16
-        #   RUSTFLAGS: '-Clink-arg=-fuse-ld=gold'
-        run: |
-          echo '[target.aarch64-unknown-linux-gnu]' >> ~/.cargo/config
-          echo 'linker = "aarch64-linux-gnu-gcc"' >> ~/.cargo/config
-          echo 'JEMALLOC_SYS_WITH_LG_PAGE=16' >> $GITHUB_ENV
-      - name: Cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          use-cross: ${{ matrix.use-cross }}
-          args: --release --target ${{ matrix.target }}
-      - name: List target output files
-        run: ls -lR ./target
       - name: Upload the binary to release
         uses: svenstaro/upload-release-action@2.3.0
         with:
