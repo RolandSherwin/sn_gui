@@ -6,60 +6,55 @@ on:
       - 'v*'
 
 jobs:
-  create_release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create Release
-        id: create_release
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        id: toolchain
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - shell: bash
-        run: make gha-build-${{ matrix.target }}
-      - uses: softprops/action-gh-release@v1
-        with:
-          name: ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-          generate_release_notes: false
-
-  build_release:
-    name: Build Release
-    needs: create_release
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            release_suffix: ubuntu
-          - os: macos-latest
-            release_suffix: mac
-          - os: windows-latest
-            release_suffix: windows
+  binary:
+    name: Publish ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # This should work with only the `include`s but it currently doesn't because of this bug:
+        # https://github.community/t5/How-to-use-Git-and-GitHub/GitHub-Actions-Matrix-options-dont-work-as-documented/td-p/29558
+        target:
+          - x86_64-apple-darwin
+          - x86_64-unknown-linux-musl
+          - x86_64-pc-windows-gnu
+          - armv7-unknown-linux-musleabihf
+          - armv7-linux-androideabi
+          - aarch64-linux-android
+          - aarch64-unknown-linux-gnu
+          - aarch64-apple-ios
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            target: x86_64-pc-windows-gnu
+          - os: ubuntu-latest
+            target: armv7-unknown-linux-musleabihf
+          - os: ubuntu-latest
+            target: armv7-linux-androideabi
+          - os: ubuntu-latest
+            target: aarch64-linux-android
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - os: macos-latest
+            target: aarch64-apple-ios
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Run Linux Build
-        if: matrix.os == 'ubuntu-latest'
-        run: echo "Ubuntu Latest" > release_ubuntu
-      
-      - name: Run Mac Build
-        if: matrix.os == 'macos-latest'
-        run: echo "MacOS Latest" > release_mac
-
-      - name: Run Windows Build
-        if: matrix.os == 'windows-latest'
-        run: echo "Windows Latest" > release_windows
-
-      - name: Release
-        uses: softprops/action-gh-release@v1
+      - uses: hecrj/setup-rust-action@v1.3.4
         with:
-          tag_name: ${{ needs.create_release.outputs.tag-name }}
-          files: release_${{ matrix.release_suffix }}
+          rust-version: stable
+      - uses: actions/checkout@v1
+      - name: Build
+        id: build
+        run: scripts/dot rust release ${{ matrix.target }}
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/tar/navi.${{ steps.build.outputs.EXTENSION }}
+          tag: ${{ github.ref }}
+          asset_name: navi-${{ steps.get_version.outputs.VERSION }}-${{ matrix.target }}.${{ steps.build.outputs.EXTENSION }}
