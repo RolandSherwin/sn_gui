@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 function Options() {
   const [greetMsg, setGreetMsg] = useState("");
   const [name, setName] = useState("");
+  
   let navigate = useNavigate();
   const routeChange = () => {
     let path = `/`;
@@ -12,7 +13,6 @@ function Options() {
   }
 
   async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
     setGreetMsg(await invoke("greet", { name }));
   }
 
@@ -24,7 +24,7 @@ function Options() {
         <button color="primary" className="px-4" onClick={routeChange}>Go Back</button>
       </div>
 
-      <div>
+      <div className="container">
         <form
           className="row"
           onSubmit={(e) => {
@@ -33,7 +33,7 @@ function Options() {
           }}
         >
           <input
-            id="greet-input"
+            id="option-values"
             onChange={(e) => setName(e.currentTarget.value)}
             placeholder="Enter a name..."
           />
